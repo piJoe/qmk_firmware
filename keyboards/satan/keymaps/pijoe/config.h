@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define TAPPING_TERM 250
 #define RETRO_TAPPING
 #define PERMISSIVE_HOLD
-#define DISABLE_SPACE_CADET_ROLLOVER
+#define PREVENT_STUCK_MODIFIERS
 #define FORCE_NKRO
 
 #define MOUSEKEY_INTERVAL 16

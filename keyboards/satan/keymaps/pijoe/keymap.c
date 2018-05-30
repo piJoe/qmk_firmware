@@ -49,7 +49,86 @@ enum custom_keycodes {
 	M_CONST, // const
 	M_VAR, // var
 	M_LET, // let
+
+	CHORDING_RANGE
 };
+
+// chording shit
+enum chording_keycodes {
+	CHORD_A = CHORDING_RANGE,
+	CHORD_S,
+	CHORD_E,
+	CHORD_T,
+	CHORD_N,
+	CHORD_I,
+	CHORD_O,
+	CHORD_P,
+};
+static uint16_t chording_state = 0;
+
+typedef struct {
+	uint16_t keycodes[3];
+	char* str;
+}chord_macro;
+
+#define CHORDING(...) {__VA_ARGS__, 0}
+
+uint16_t get_chording_bitmask(uint16_t keycode);
+uint16_t get_chording_bitmask(uint16_t keycode) {
+	return 1 << (keycode - CHORDING_RANGE);
+}
+
+uint16_t get_bitmask_from_chord(const uint16_t keycodes[]);
+uint16_t get_bitmask_from_chord(const uint16_t keycodes[]) {
+	uint16_t kc = 0;
+	uint16_t bitmask = 0;
+
+	int i = 0;
+	for (i = 0; keycodes[i] != 0; i++) {
+		kc = keycodes[i];
+		bitmask |= get_chording_bitmask(kc);
+	}
+
+	return bitmask;
+}
+
+const int MAX_CHORDS = 1;
+const chord_macro chording_table[1] = {
+	{{CHORD_A, CHORD_S, 0}, "AS"}
+};
+
+
+
+bool process_chords(uint16_t keycode, keyrecord_t *record) {
+	if (keycode >= CHORD_A && keycode <= CHORD_P) { // is actual a chording key
+		if (!record->event.pressed) { // no longer pressed
+			chording_state |= get_chording_bitmask(keycode);
+
+			char state[10];
+			sprintf(state, "ev %d %d ", get_chording_bitmask(keycode), chording_state);
+			send_string(state);
+		}
+
+		for(int i = 0; i < MAX_CHORDS; i++) {
+			uint16_t bitmask = get_bitmask_from_chord(chording_table[i].keycodes);
+
+			char state[20];
+			sprintf(state, "bm %d %d", bitmask, chording_state);
+			send_string(state);
+
+			if (chording_state == bitmask) {
+				SEND_STRING("jetzt los!");
+				send_string(chording_table[i].str);
+				chording_state = 0;
+				return false;
+			}
+		}
+		return false;
+	}
+
+	return true;
+}
+// end chording shit
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 	// DEFAULT LAYER 0
@@ -87,7 +166,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 	// FUNCTION LAYER
 	[_FUNC] = KEYMAP_ANSI(
 	KC_GRAVE,   KC_F1,  KC_F2,  KC_F3,  KC_F4,  KC_F5,  KC_F6,  KC_F7,  KC_F8,  KC_F9,    KC_F10,   KC_F11,  KC_F12,   KC_DEL, \
-	M_TRPTICKS, XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,  KC_PSCR,  XXXXXXX, XXXXXXX,  KC_BSPACE, \
+	M_TRPTICKS, CHORD_A,CHORD_S,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,  KC_PSCR,  XXXXXXX, XXXXXXX,  KC_BSPACE, \
 	KC_LCTL,    M_ARR,  XXXXXXX,XXXXXXX,M_FUNC, XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,M_LET,    XXXXXXX,  XXXXXXX,           LT_ENTFN,  \
 	KC_LSFT,            XXXXXXX,XXXXXXX,M_CONST,M_VAR,  XXXXXXX,XXXXXXX,XXXXXXX,DF(_GAME),DF(_BASE),XXXXXXX,           KC_RSFT, \
 	XXXXXXX,    KC_LGUI,KC_LALT,                KC_DEL,                                   XXXXXXX,  KC_RALT, XXXXXXX,  XXXXXXX),
@@ -134,6 +213,10 @@ bool process_macros(uint16_t keycode, keyrecord_t *record) {
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 	if (!process_macros(keycode, record)) {
+		return false;
+	}
+
+	if (!process_chords(keycode, record)) {
 		return false;
 	}
 
