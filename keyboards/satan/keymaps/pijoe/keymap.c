@@ -8,7 +8,8 @@
 #define _GAME 1 // gaming layer
 #define _ESHFT 2 // edit layer shifted (selecting)
 #define _EDIT 3 // edit layer
-#define _FUNC 4
+#define _CHORD 5
+#define _FUNC 10
 #define _MOUSE 15 // edit layer shifted (selecting)
 
 #define _______ KC_TRNS
@@ -54,73 +55,145 @@ enum custom_keycodes {
 };
 
 // chording shit
-enum chording_keycodes {
-	CHORD_A = CHORDING_RANGE,
-	CHORD_S,
-	CHORD_E,
-	CHORD_T,
-	CHORD_N,
-	CHORD_I,
-	CHORD_O,
-	CHORD_P,
+enum chords {
+	CRD_A = CHORDING_RANGE,
+	CRD_S,
+	CRD_E,
+	CRD_T,
+	CRD_N,
+	CRD_I,
+	CRD_O,
+	CRD_P,
 };
 static uint16_t chording_state = 0;
+static uint8_t chording_keys_down = 0;
 
 typedef struct {
-	uint16_t keycodes[3];
+	uint16_t bitmask;
 	char* str;
-}chord_macro;
+}chord_string;
 
-#define CHORDING(...) {__VA_ARGS__, 0}
+typedef struct {
+	uint16_t bitmask;
+	uint16_t keycode;
+}chord_keycode;
+
+#define CRD_BM(kc) (1 << (kc - CHORDING_RANGE))
 
 uint16_t get_chording_bitmask(uint16_t keycode);
 uint16_t get_chording_bitmask(uint16_t keycode) {
 	return 1 << (keycode - CHORDING_RANGE);
 }
 
-uint16_t get_bitmask_from_chord(const uint16_t keycodes[]);
-uint16_t get_bitmask_from_chord(const uint16_t keycodes[]) {
-	uint16_t kc = 0;
-	uint16_t bitmask = 0;
+#define CHORD_KC_TOTAL 34
+const chord_keycode chording_kc[CHORD_KC_TOTAL] = {
+	{CRD_BM(CRD_A), KC_A},
+	{CRD_BM(CRD_S), KC_S},
+	{CRD_BM(CRD_E), KC_E},
+	{CRD_BM(CRD_T), KC_T},
+	{CRD_BM(CRD_N), KC_N},
+	{CRD_BM(CRD_I), KC_I},
+	{CRD_BM(CRD_O), KC_O},
+	{CRD_BM(CRD_P), KC_P},
 
-	int i = 0;
-	for (i = 0; keycodes[i] != 0; i++) {
-		kc = keycodes[i];
-		bitmask |= get_chording_bitmask(kc);
-	}
+	{CRD_BM(CRD_A) | CRD_BM(CRD_S), KC_EXCLAIM},
+	{CRD_BM(CRD_A) | CRD_BM(CRD_E), KC_AT},
+	{CRD_BM(CRD_A) | CRD_BM(CRD_T), KC_Q},
+	{CRD_BM(CRD_A) | CRD_BM(CRD_N), KC_H},
+	{CRD_BM(CRD_A) | CRD_BM(CRD_I), KC_K},
+	{CRD_BM(CRD_A) | CRD_BM(CRD_O), KC_Z},
+	
+	{CRD_BM(CRD_S) | CRD_BM(CRD_E), KC_X},
+	{CRD_BM(CRD_S) | CRD_BM(CRD_T), KC_DOUBLE_QUOTE},
+	{CRD_BM(CRD_S) | CRD_BM(CRD_N), KC_M},
+	{CRD_BM(CRD_S) | CRD_BM(CRD_I), KC_W},
+	{CRD_BM(CRD_S) | CRD_BM(CRD_O), KC_L},
 
-	return bitmask;
-}
+	{CRD_BM(CRD_E) | CRD_BM(CRD_T), KC_V},
+	{CRD_BM(CRD_E) | CRD_BM(CRD_N), KC_U},
+	{CRD_BM(CRD_E) | CRD_BM(CRD_I), KC_D},
+	{CRD_BM(CRD_E) | CRD_BM(CRD_O), KC_C},
 
-const int MAX_CHORDS = 1;
-const chord_macro chording_table[1] = {
-	{{CHORD_A, CHORD_S, 0}, "AS"}
+	{CRD_BM(CRD_T) | CRD_BM(CRD_N), KC_R},
+	{CRD_BM(CRD_T) | CRD_BM(CRD_I), KC_G},
+	{CRD_BM(CRD_T) | CRD_BM(CRD_O), KC_B},
+	{CRD_BM(CRD_T) | CRD_BM(CRD_P), KC_F},
+
+	{CRD_BM(CRD_N) | CRD_BM(CRD_I), KC_COMMA},
+	{CRD_BM(CRD_N) | CRD_BM(CRD_O), KC_Y},
+	{CRD_BM(CRD_N) | CRD_BM(CRD_P), KC_J},
+
+	{CRD_BM(CRD_I) | CRD_BM(CRD_O), KC_DOT},
+
+	{CRD_BM(CRD_O) | CRD_BM(CRD_P), KC_QUESTION},
+
+	{CRD_BM(CRD_A)|CRD_BM(CRD_S)|CRD_BM(CRD_E)|CRD_BM(CRD_T), KC_BSPACE},
+	{CRD_BM(CRD_N)|CRD_BM(CRD_I)|CRD_BM(CRD_O)|CRD_BM(CRD_P), KC_ENTER},
+};
+
+#define CHORD_STR_TOTAL 4
+const chord_string chording_str[CHORD_STR_TOTAL] = {
+	{CRD_BM(CRD_A) | CRD_BM(CRD_P), SS_RALT("u")},
+	{CRD_BM(CRD_S) | CRD_BM(CRD_P),  SS_RALT("a")},
+	{CRD_BM(CRD_E) | CRD_BM(CRD_P),  SS_RALT("o")},
+	{CRD_BM(CRD_I) | CRD_BM(CRD_P),  SS_RALT("s")},
 };
 
 
+bool process_chords_kc(uint16_t state) {
+	for(int i = 0; i < CHORD_KC_TOTAL; i++) {
+		uint16_t bitmask = chording_kc[i].bitmask;
+
+		if (state == bitmask) {
+			//todo: chording_kc[i].keycode senden irgendwie
+			uint16_t keycode = chording_kc[i].keycode;
+			register_code16(keycode);
+  			unregister_code16(keycode);
+			return false;
+		}
+	}
+	return true;
+}
+
+bool process_chords_str(uint16_t state) {
+	for(int i = 0; i < CHORD_STR_TOTAL; i++) {
+		uint16_t bitmask = chording_str[i].bitmask;
+
+		if (state == bitmask) {
+			send_string(chording_str[i].str);
+			return false;
+		}
+	}
+	return true;
+}
+
+// bool process_chords_fn(uint16_t state) {
+// 	for(int i = 0; i < CHORD_FN_TOTAL; i++) {
+// 		uint16_t bitmask = chording_fn[i].bitmask;
+
+// 		if (state == bitmask) {
+// 			send_string(.str);
+// 			return false;
+// 		}
+// 	}
+// 	return true;
+// }
 
 bool process_chords(uint16_t keycode, keyrecord_t *record) {
-	if (keycode >= CHORD_A && keycode <= CHORD_P) { // is actual a chording key
-		if (!record->event.pressed) { // no longer pressed
+	if (keycode >= CRD_A && keycode <= CRD_P) { // is actual a chording key
+		if (record->event.pressed) {
+			chording_keys_down++;
+		}
+		else { // no longer pressed
+			chording_keys_down--;
 			chording_state |= get_chording_bitmask(keycode);
 
-			char state[10];
-			sprintf(state, "ev %d %d ", get_chording_bitmask(keycode), chording_state);
-			send_string(state);
-		}
-
-		for(int i = 0; i < MAX_CHORDS; i++) {
-			uint16_t bitmask = get_bitmask_from_chord(chording_table[i].keycodes);
-
-			char state[20];
-			sprintf(state, "bm %d %d", bitmask, chording_state);
-			send_string(state);
-
-			if (chording_state == bitmask) {
-				SEND_STRING("jetzt los!");
-				send_string(chording_table[i].str);
+			if (chording_keys_down <= 0) {
+				chording_keys_down = 0;
+				uint16_t state = chording_state;
 				chording_state = 0;
-				return false;
+				if (!process_chords_kc(state)) return false;
+				if (!process_chords_str(state)) return false;
 			}
 		}
 		return false;
@@ -166,10 +239,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 	// FUNCTION LAYER
 	[_FUNC] = KEYMAP_ANSI(
 	KC_GRAVE,   KC_F1,  KC_F2,  KC_F3,  KC_F4,  KC_F5,  KC_F6,  KC_F7,  KC_F8,  KC_F9,    KC_F10,   KC_F11,  KC_F12,   KC_DEL, \
-	M_TRPTICKS, CHORD_A,CHORD_S,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,  KC_PSCR,  XXXXXXX, XXXXXXX,  KC_BSPACE, \
+	M_TRPTICKS, CRD_A,  CRD_S,  CRD_E,CRD_T,XXXXXXX,XXXXXXX,CRD_N,CRD_I,CRD_O,  CRD_P,  RALT(KC_U), XXXXXXX,  KC_BSPACE, \
 	KC_LCTL,    M_ARR,  XXXXXXX,XXXXXXX,M_FUNC, XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,M_LET,    XXXXXXX,  XXXXXXX,           LT_ENTFN,  \
-	KC_LSFT,            XXXXXXX,XXXXXXX,M_CONST,M_VAR,  XXXXXXX,XXXXXXX,XXXXXXX,DF(_GAME),DF(_BASE),XXXXXXX,           KC_RSFT, \
+	KC_LSFT,            XXXXXXX,XXXXXXX,M_CONST,M_VAR,  XXXXXXX,XXXXXXX,XXXXXXX,DF(_GAME),DF(_BASE),DF(_CHORD),           KC_RSFT, \
 	XXXXXXX,    KC_LGUI,KC_LALT,                KC_DEL,                                   XXXXXXX,  KC_RALT, XXXXXXX,  XXXXXXX),
+
+		// FUNCTION LAYER
+	[_CHORD] = KEYMAP_ANSI(
+	KC_GRAVE,   KC_F1,  KC_F2,  KC_F3,  KC_F4,  KC_F5,  KC_F6,  KC_F7,  KC_F8,  KC_F9,    KC_F10,   KC_F11,  KC_F12,   KC_DEL, \
+	M_TRPTICKS, CRD_A,  CRD_S,  CRD_E,  CRD_T,  XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,CRD_N,    CRD_I,    CRD_O,   CRD_P,   KC_BSPACE, \
+	KC_LCTL,    M_ARR,  XXXXXXX,XXXXXXX,M_FUNC, XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,M_LET,    XXXXXXX,  XXXXXXX,           LT_ENTFN,  \
+	KC_LSFT,            XXXXXXX,XXXXXXX,M_CONST,M_VAR,  XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,XXXXXXX,           KC_RSFT, \
+	XXXXXXX,    KC_LGUI,KC_LALT,                KC_SPACE,                                   KC_LSHIFT,  KC_RALT, XXXXXXX,  XXXXXXX),
 
 	//MOUSE LAYER (15)
 	[_MOUSE]=KEYMAP_ANSI(
